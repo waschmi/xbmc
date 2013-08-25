@@ -46,7 +46,6 @@ CDVDVideoCodecAmlogic::CDVDVideoCodecAmlogic() :
   m_framerate(0.0),
   m_video_rate(0),
   m_mpeg2_sequence(NULL),
-  m_bitparser(NULL),
   m_bitstream(NULL)
 {
   pthread_mutex_init(&m_queue_mutex, NULL);
@@ -97,8 +96,6 @@ bool CDVDVideoCodecAmlogic::Open(CDVDStreamInfo &hints, CDVDCodecOptions &option
         m_hints.extradata = malloc(m_hints.extrasize);
         memcpy(m_hints.extradata, m_bitstream->GetExtraData(), m_hints.extrasize);
       }
-      //m_bitparser = new CBitstreamParser();
-      //m_bitparser->Open();
       break;
     case CODEC_ID_MPEG4:
     case CODEC_ID_MSMPEG4V2:
@@ -177,8 +174,8 @@ bool CDVDVideoCodecAmlogic::Open(CDVDStreamInfo &hints, CDVDCodecOptions &option
     {
       if (CJobManager::GetInstance().IsProcessing(kJobTypeMediaFlags) > 0)
       {
-        Sleep(100);
-        timeout_ms -= 100;
+        Sleep(20);
+        timeout_ms -= 20;
       }
       else
         break;
@@ -201,9 +198,6 @@ void CDVDVideoCodecAmlogic::Dispose(void)
   if (m_bitstream)
     delete m_bitstream, m_bitstream = NULL;
 
-  if (m_bitparser)
-    delete m_bitparser, m_bitparser = NULL;
-
   while (m_queue_depth)
     FrameQueuePop();
 }
@@ -212,6 +206,17 @@ int CDVDVideoCodecAmlogic::Decode(uint8_t *pData, int iSize, double dts, double 
 {
   // Handle Input, add demuxer packet to input queue, we must accept it or
   // it will be discarded as DVDPlayerVideo has no concept of "try again".
+
+  // This is a special case for fast upd/mpegts startup.
+  // m_hints contents are bogus and we are waiting for CDVDDemuxFFmpeg::Read
+  // to parse extradata, and setup a new stream. until this happens,
+  // pretend we are open and eat demux packets.
+  if (!m_hints.width && !m_hints.height)
+  {
+    Sleep(30);
+    return VC_BUFFER;
+  }
+
   if (pData)
   {
     if (m_bitstream)
@@ -222,9 +227,6 @@ int CDVDVideoCodecAmlogic::Decode(uint8_t *pData, int iSize, double dts, double 
       pData = m_bitstream->GetConvertBuffer();
       iSize = m_bitstream->GetConvertSize();
     }
-
-    if (m_bitparser)
-      m_bitparser->FindIdrSlice(pData, iSize);
 
     FrameRateTracking( pData, iSize, dts, pts);
   }
