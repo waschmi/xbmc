@@ -25,6 +25,8 @@
 #include "utils/log.h"
 #if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
 #include "utils/AMLUtils.h"
+
+#define DEFAULT_OFFSET 0.250f
 #endif
 
 #include <jni.h>
@@ -175,7 +177,7 @@ double CAESinkAUDIOTRACK::GetDelay()
   sinkbuffer_seconds_to_empty += m_audiotrack_empty_sec;
 #if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
   if (sinkbuffer_seconds_to_empty > 0.0)
-    sinkbuffer_seconds_to_empty += 0.250;
+    sinkbuffer_seconds_to_empty += DEFAULT_OFFSET;
 #endif
   return sinkbuffer_seconds_to_empty;
 }
@@ -189,7 +191,7 @@ double CAESinkAUDIOTRACK::GetCacheTime()
   sinkbuffer_seconds_to_empty += m_audiotrack_empty_sec;
 #if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
   if (sinkbuffer_seconds_to_empty > 0.0)
-    sinkbuffer_seconds_to_empty += 0.250;
+    sinkbuffer_seconds_to_empty += DEFAULT_OFFSET;
 #endif
   return sinkbuffer_seconds_to_empty;
 }
