@@ -23,8 +23,8 @@
 #include "Utils/AERingBuffer.h"
 #include "android/activity/XBMCApp.h"
 #include "utils/log.h"
-#if defined(HAS_AMLPLAYER)
-#include "cores/amlplayer/AMLUtils.h"
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+#include "utils/AMLUtils.h"
 #endif
 
 #include <jni.h>
@@ -72,14 +72,14 @@ CAESinkAUDIOTRACK::CAESinkAUDIOTRACK()
 {
   m_sinkbuffer = NULL;
   m_alignedS16LE = NULL;
-#if defined(HAS_AMLPLAYER)
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
   aml_cpufreq_limit(true);
 #endif
 }
 
 CAESinkAUDIOTRACK::~CAESinkAUDIOTRACK()
 {
-#if defined(HAS_AMLPLAYER)
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
   aml_cpufreq_limit(false);
 #endif
 }
@@ -87,6 +87,16 @@ CAESinkAUDIOTRACK::~CAESinkAUDIOTRACK()
 bool CAESinkAUDIOTRACK::Initialize(AEAudioFormat &format, std::string &device)
 {
   m_format = format;
+
+  if (AE_IS_RAW(m_format.m_dataFormat))
+    m_passthrough = true;
+  else
+    m_passthrough = false;
+
+#if defined(HAS_LIBAMCODEC)
+  if (aml_present())
+    aml_set_audio_passthrough(m_passthrough);
+#endif
 
   // default to 44100, all android devices support it.
   // then check if we can support the requested rate.
@@ -162,7 +172,12 @@ double CAESinkAUDIOTRACK::GetDelay()
   // AudioMixer (if any) and audio hardware driver.
 
   double sinkbuffer_seconds_to_empty = m_sinkbuffer_sec_per_byte * (double)m_sinkbuffer->GetReadSize();
-  return sinkbuffer_seconds_to_empty + m_audiotrack_empty_sec;
+  sinkbuffer_seconds_to_empty += m_audiotrack_empty_sec;
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+  if (sinkbuffer_seconds_to_empty > 0.0)
+    sinkbuffer_seconds_to_empty += 0.250;
+#endif
+  return sinkbuffer_seconds_to_empty;
 }
 
 double CAESinkAUDIOTRACK::GetCacheTime()
@@ -171,7 +186,12 @@ double CAESinkAUDIOTRACK::GetCacheTime()
   // to underrun the buffer if no sample is added.
 
   double sinkbuffer_seconds_to_empty = m_sinkbuffer_sec_per_byte * (double)m_sinkbuffer->GetReadSize();
-  return sinkbuffer_seconds_to_empty + m_audiotrack_empty_sec;
+  sinkbuffer_seconds_to_empty += m_audiotrack_empty_sec;
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+  if (sinkbuffer_seconds_to_empty > 0.0)
+    sinkbuffer_seconds_to_empty += 0.250;
+#endif
+  return sinkbuffer_seconds_to_empty;
 }
 
 double CAESinkAUDIOTRACK::GetCacheTotal()
@@ -233,7 +253,8 @@ void  CAESinkAUDIOTRACK::SetVolume(float scale)
   // Android uses fixed steps, reverse scale back to percent
   float gain = CAEUtil::ScaleToGain(scale);
   m_volume = CAEUtil::GainToPercent(gain);
-  m_volume_changed = true;
+  if (!m_passthrough)
+    m_volume_changed = true;
 }
 
 void CAESinkAUDIOTRACK::EnumerateDevicesEx(AEDeviceInfoList &list, bool force)
@@ -303,6 +324,12 @@ void CAESinkAUDIOTRACK::Process()
     min_buffer_size,
     GetStaticIntField(jenv, "AudioTrack", "MODE_STREAM"));
 
+  // Set the initial volume
+  jfloat jvolume = 1.0;
+  if (!m_passthrough)
+    jvolume = m_volume;
+  CXBMCApp::SetSystemVolume(jenv, jvolume);
+
   // The AudioTrack object has been created and waiting to play,
   m_inited.Set();
   // yield to give other threads a chance to do some work.
@@ -319,7 +346,7 @@ void CAESinkAUDIOTRACK::Process()
 
   while (!m_bStop)
   {
-    if (m_volume_changed)
+    if (m_volume_changed && !m_passthrough)
     {
       // check of volume changes and make them,
       // do it here to keep jni calls local to this thread.

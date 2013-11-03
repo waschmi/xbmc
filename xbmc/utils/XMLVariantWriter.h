@@ -1,6 +1,6 @@
 #pragma once
 /*
- *      Copyright (C) 2011-2012 Team XBMC
+ *      Copyright (C) 2005-2011 Team XBMC
  *      http://www.xbmc.org
  *
  *  This Program is free software; you can redistribute it and/or modify
@@ -14,16 +14,20 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
+ *  along with XBMC; see the file COPYING.  If not, write to
+ *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  http://www.gnu.org/copyleft/gpl.html
  *
  */
 
-int aml_set_sysfs_str(const char *path, const char *val);
-int aml_get_sysfs_str(const char *path, char *valstr, const int size);
-int aml_set_sysfs_int(const char *path, const int val);
-int aml_get_sysfs_int(const char *path);
+#include "Variant.h"
 
-bool aml_present();
-void aml_cpufreq_limit(bool limit);
-void aml_set_audio_passthrough(bool passthrough);
+class TiXmlElement;
+
+class CXMLVariantWriter
+{
+public:
+  static bool Write(TiXmlElement *root, const CVariant &value);
+private:
+  static bool WriteValue(TiXmlElement *valueNode, const CVariant &value);
+};

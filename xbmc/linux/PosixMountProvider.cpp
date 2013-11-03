@@ -65,6 +65,7 @@ void CPosixMountProvider::GetDrives(VECSOURCES &drives)
             || strcmp(fs, "ext2") == 0 || strcmp(fs, "ext3") == 0
             || strcmp(fs, "reiserfs") == 0 || strcmp(fs, "xfs") == 0
             || strcmp(fs, "ntfs-3g") == 0 || strcmp(fs, "iso9660") == 0
+            || strcmp(fs, "exfat") == 0
             || strcmp(fs, "fusefs") == 0 || strcmp(fs, "hfs") == 0)
           accepted = true;
 
@@ -124,6 +125,16 @@ std::vector<CStdString> CPosixMountProvider::GetDiskUsage()
   }
 
   return result;
+}
+
+bool CPosixMountProvider::Eject(CStdString mountpath)
+{
+  // just go ahead and try to umount the disk
+  // if it does umount, life is good, if not, no loss.
+  std::string cmd = "umount " + mountpath;
+  system(cmd.c_str());
+
+  return true;
 }
 
 bool CPosixMountProvider::PumpDriveChangeEvents(IStorageEventsCallback *callback)

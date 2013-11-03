@@ -20,6 +20,11 @@
 
 #include "PeripheralBusUSBLibUdev.h"
 #include "peripherals/Peripherals.h"
+
+#if defined(HAS_LINUX_EVENTS)
+#include "windowing/WinEventsLinux.h"
+#endif
+
 extern "C" {
 #include <libudev.h>
 }
@@ -107,6 +112,7 @@ CPeripheralBusUSB::~CPeripheralBusUSB(void)
 
 bool CPeripheralBusUSB::PerformDeviceScan(PeripheralScanResults &results)
 {
+  bool rtn = false;
   struct udev_enumerate *enumerate;
   struct udev_list_entry *devices, *dev_list_entry;
   struct udev_device *dev(NULL), *parent(NULL);
@@ -173,7 +179,32 @@ bool CPeripheralBusUSB::PerformDeviceScan(PeripheralScanResults &results)
   /* Free the enumerator object */
   udev_enumerate_unref(enumerate);
 
-  return true;
+  // quick check if number of entries changed.
+  if (m_results.m_results.size() != results.m_results.size())
+  {
+    m_results = results;
+    rtn = true;
+  }
+  else
+  {
+    // number of entried are the same, so we have to compare each one.
+    for (unsigned int iDevicePtr = 0; iDevicePtr < m_results.m_results.size(); iDevicePtr++)
+    {
+      if (!results.ContainsResult(m_results.m_results.at(iDevicePtr)))
+      {
+        // if anything changes, we flag a new PeripheralScanResults
+        m_results = results;
+        rtn = true;
+        break;
+      }
+    }
+  }
+#if defined(HAS_LINUX_EVENTS)
+  if (rtn)
+    CWinEvents::RefreshDevices();
+#endif
+
+  return rtn;
 }
 
 const PeripheralType CPeripheralBusUSB::GetType(int iDeviceClass)
@@ -221,9 +252,9 @@ void CPeripheralBusUSB::Clear(void)
 
 bool CPeripheralBusUSB::WaitForUpdate()
 {
-  int m_udevFd = udev_monitor_get_fd(m_udevMon);
+  int udevFd = udev_monitor_get_fd(m_udevMon);
 
-  if (m_udevFd < 0)
+  if (udevFd < 0)
   {
     CLog::Log(LOGERROR, "%s - get udev monitor", __FUNCTION__);
     return false;
@@ -231,7 +262,7 @@ bool CPeripheralBusUSB::WaitForUpdate()
 
   /* poll for udev changes */
   struct pollfd pollFd;
-  pollFd.fd = m_udevFd;
+  pollFd.fd = udevFd;
   pollFd.events = POLLIN;
   int iPollResult;
   while (!m_bStop && ((iPollResult = poll(&pollFd, 1, 100)) <= 0))

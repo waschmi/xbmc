@@ -645,7 +645,12 @@ void CDVDPlayerAudio::HandleSyncError(double duration)
   double error = m_dvdAudio.GetPlayingPts() - clock;
   int64_t now;
 
+//#if defined(TARGET_ANDROID)
+#if 1
+  if( fabs(error) > DVD_MSEC_TO_TIME(250) || m_syncclock )
+#else
   if( fabs(error) > DVD_MSEC_TO_TIME(100) || m_syncclock )
+#endif
   {
     m_pClock->Discontinuity(clock+error);
     if(m_speed == DVD_PLAYSPEED_NORMAL)
@@ -769,12 +774,12 @@ bool CDVDPlayerAudio::OutputPacket(DVDAudioFrame &audioframe)
   }
   else if (m_synctype == SYNC_RESAMPLE)
   {
-    double proportional = 0.0, proportionaldiv;
+    double proportional = 0.0;
 
     //on big errors use more proportional
     if (fabs(m_error / DVD_TIME_BASE) > 0.0)
     {
-      proportionaldiv = PROPORTIONAL * (PROPREF / fabs(m_error / DVD_TIME_BASE));
+      double proportionaldiv = PROPORTIONAL * (PROPREF / fabs(m_error / DVD_TIME_BASE));
       if (proportionaldiv < PROPDIVMIN) proportionaldiv = PROPDIVMIN;
       else if (proportionaldiv > PROPDIVMAX) proportionaldiv = PROPDIVMAX;
 

@@ -470,7 +470,7 @@ bool CDVDPlayer::OpenFile(const CFileItem& file, const CPlayerOptions &options)
 #endif
 
     Create();
-    if(!m_ready.WaitMSec(100))
+    if(!m_ready.WaitMSec(g_advancedSettings.m_videoBusyDialogDelay_ms))
     {
       CGUIDialogBusy* dialog = (CGUIDialogBusy*)g_windowManager.GetWindow(WINDOW_DIALOG_BUSY);
       if(dialog)
@@ -2821,6 +2821,21 @@ bool CDVDPlayer::OpenAudioStream(int iStream, int source, bool reset)
 
   CDVDStreamInfo hint(*pStream, true);
 
+  boost::shared_ptr<CPVRClient> client;
+  if(m_pInputStream && m_pInputStream->IsStreamType(DVDSTREAM_TYPE_PVRMANAGER) &&
+     pStream->type == STREAM_AUDIO &&
+     g_PVRClients->GetPlayingClient(client) && client->HandlesDemuxing())
+  {
+    // update the hints for the codec
+    const CDemuxStreamAudio *stream = static_cast<const CDemuxStreamAudio*>(pStream);
+    hint.codec         = stream->codec;
+    hint.channels      = stream->iChannels;
+    hint.samplerate    = stream->iSampleRate;
+    hint.blockalign    = stream->iBlockAlign;
+    hint.bitrate       = stream->iBitRate;
+    hint.bitspersample = stream->iBitsPerSample;
+  }
+
   if(m_CurrentAudio.id    < 0
   || m_CurrentAudio.hint != hint)
   {
@@ -2876,7 +2891,9 @@ bool CDVDPlayer::OpenVideoStream(int iStream, int source, bool reset)
       hint.aspect = aspect;
       hint.forced_aspect = true;
     }
+#if !defined(HAS_LIBAMCODEC)
     hint.software = true;
+#endif
   }
 
   boost::shared_ptr<CPVRClient> client;
@@ -2884,10 +2901,14 @@ bool CDVDPlayer::OpenVideoStream(int iStream, int source, bool reset)
      pStream->type == STREAM_VIDEO &&
      g_PVRClients->GetPlayingClient(client) && client->HandlesDemuxing())
   {
-    // set the fps in hints
+    // update the hints for the codec
     const CDemuxStreamVideo *stream = static_cast<const CDemuxStreamVideo*>(pStream);
+    hint.codec    = stream->codec;
+    hint.profile  = stream->profile;
+    hint.level    = stream->level;
     hint.fpsrate  = stream->iFpsRate;
     hint.fpsscale = stream->iFpsScale;
+    hint.aspect   = stream->fAspect;
   }
 
   CDVDInputStream::IMenus* pMenus = dynamic_cast<CDVDInputStream::IMenus*>(m_pInputStream);

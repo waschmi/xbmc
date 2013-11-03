@@ -966,8 +966,8 @@ void CDVDDemuxFFmpeg::AddStream(int iId)
         else
           st->bVFR = false;
 
-        // never trust pts in avi files with h264.
-        if (m_bAVI && pStream->codec->codec_id == CODEC_ID_H264)
+        // never trust pts in avi files
+        if (m_bAVI)
           st->bPTSInvalid = true;
 
         //average fps is more accurate for mkv files
@@ -985,6 +985,18 @@ void CDVDDemuxFFmpeg::AddStream(int iId)
         {
           st->iFpsRate  = 0;
           st->iFpsScale = 0;
+        }
+
+        // added for aml hw decoder, mkv frame-rate can be wrong.
+        if (pStream->r_frame_rate.den && pStream->r_frame_rate.num)
+        {
+          st->irFpsRate = pStream->r_frame_rate.num;
+          st->irFpsScale = pStream->r_frame_rate.den;
+        }
+        else
+        {
+          st->irFpsRate = 0;
+          st->irFpsScale = 0;
         }
 
         if (pStream->codec_info_nb_frames >  0

@@ -465,6 +465,8 @@ void CDVDPlayerVideo::Process()
       m_speed = static_cast<CDVDMsgInt*>(pMsg)->m_value;
       if(m_speed == DVD_PLAYSPEED_PAUSE)
         m_iNrOfPicturesNotToSkip = 0;
+      if (m_pVideoCodec)
+        m_pVideoCodec->SetSpeed(m_speed);
     }
     else if (pMsg->IsType(CDVDMsg::PLAYER_STARTED))
     {
@@ -1174,8 +1176,11 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
     limited = true;
 
   //correct any pattern in the timestamps
-  m_pullupCorrection.Add(pts);
-  pts += m_pullupCorrection.GetCorrection();
+  if (m_output.color_format != RENDER_FMT_BYPASS)
+  {
+    m_pullupCorrection.Add(pts);
+    pts += m_pullupCorrection.GetCorrection();
+  }
 
   //try to calculate the framerate
   CalcFrameRate();
@@ -1189,8 +1194,11 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
     pts -= DVD_TIME_BASE * interval;
   }
 
-  // Correct pts by user set delay and rendering delay
-  pts += m_iVideoDelay - DVD_SEC_TO_TIME(g_renderManager.GetDisplayLatency());
+  if (m_output.color_format != RENDER_FMT_BYPASS)
+  {
+    // Correct pts by user set delay and rendering delay
+    pts += m_iVideoDelay - DVD_SEC_TO_TIME(g_renderManager.GetDisplayLatency());
+  }
 
   // calculate the time we need to delay this picture before displaying
   double iSleepTime, iClockSleep, iFrameSleep, iPlayingClock, iCurrentClock, iFrameDuration;
@@ -1283,19 +1291,19 @@ int CDVDPlayerVideo::OutputPicture(const DVDVideoPicture* src, double pts)
 
   if( m_speed != DVD_PLAYSPEED_NORMAL && limited )
   {
+    m_droptime += iFrameDuration;
+#ifndef PROFILE
     // calculate frame dropping pattern to render at this speed
     // we do that by deciding if this or next frame is closest
     // to the flip timestamp
     double current   = fabs(m_dropbase -  m_droptime);
     double next      = fabs(m_dropbase - (m_droptime + iFrameDuration));
-    double frametime = (double)DVD_TIME_BASE / maxfps;
 
-    m_droptime += iFrameDuration;
-#ifndef PROFILE
     if( next < current && !(pPicture->iFlags & DVP_FLAG_NOSKIP) )
       return result | EOS_DROPPED;
 #endif
-
+    
+    double frametime = (double)DVD_TIME_BASE / maxfps;
     while(!m_bStop && m_dropbase < m_droptime)             m_dropbase += frametime;
     while(!m_bStop && m_dropbase - frametime > m_droptime) m_dropbase -= frametime;
 

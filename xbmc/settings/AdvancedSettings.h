@@ -164,6 +164,7 @@ class CAdvancedSettings
     bool m_DXVAForceProcessorRenderer;
     bool m_DXVANoDeintProcForProgressive;
     int  m_videoFpsDetect;
+    int  m_videoBusyDialogDelay_ms;
 
     CStdString m_videoDefaultPlayer;
     CStdString m_videoDefaultDVDPlayer;
@@ -182,6 +183,10 @@ class CAdvancedSettings
     int m_logLevel;
     int m_logLevelHint;
     CStdString m_cddbAddress;
+
+    // network manager
+    bool m_enableNetworkManager;
+    bool m_showNetworkPassPhrase;
 
     //airtunes + airplay
     bool m_logEnableAirtunes;
@@ -206,6 +211,7 @@ class CAdvancedSettings
     SETTINGS_TVSHOWLIST m_tvshowEnumRegExps;
     CStdString m_tvshowMultiPartEnumRegExp;
     typedef std::vector< std::pair<CStdString, CStdString> > StringMapping;
+    CStdStringArray m_settingsHidden;
     StringMapping m_pathSubstitutions;
     int m_remoteDelay; ///< \brief number of remote messages to ignore before repeating
     float m_controllerDeadzone;

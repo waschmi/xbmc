@@ -33,11 +33,12 @@
 #include "utils/MathUtils.h"
 #include "threads/SingleLock.h"
 #include "settings/GUISettings.h"
-#if defined(HAS_AMLPLAYER)
-#include "cores/amlplayer/AMLUtils.h"
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+#include "utils/AMLUtils.h"
 #endif
 
 #define ALSA_OPTIONS (SND_PCM_NONBLOCK | SND_PCM_NO_AUTO_FORMAT | SND_PCM_NO_AUTO_CHANNELS | SND_PCM_NO_AUTO_RESAMPLE)
+#define ALSA_PERIODS 8
 
 #define ALSA_MAX_CHANNELS 16
 static enum AEChannel ALSAChannelMap[ALSA_MAX_CHANNELS + 1] = {
@@ -65,6 +66,18 @@ static unsigned int ALSASampleRateList[] =
   0
 };
 
+static int CheckNP2(unsigned x)
+{
+    --x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return ++x;
+}
+
+
 CAESinkALSA::CAESinkALSA() :
   m_pcm(NULL)
 {
@@ -78,7 +91,7 @@ CAESinkALSA::~CAESinkALSA()
   Deinitialize();
 }
 
-inline CAEChannelInfo CAESinkALSA::GetChannelLayout(AEAudioFormat format)
+CAEChannelInfo CAESinkALSA::GetChannelLayout(AEAudioFormat format)
 {
   unsigned int count = 0;
 
@@ -143,7 +156,7 @@ bool CAESinkALSA::Initialize(AEAudioFormat &format, std::string &device)
     m_channelLayout = GetChannelLayout(format);
     m_passthrough   = false;
   }
-#if defined(HAS_AMLPLAYER)
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
   if (aml_present())
   {
     aml_set_audio_passthrough(m_passthrough);
@@ -258,7 +271,29 @@ bool CAESinkALSA::InitializeHW(AEAudioFormat &format)
   snd_pcm_hw_params_set_access(m_pcm, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED);
 
   unsigned int sampleRate   = format.m_sampleRate;
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+  // alsa/kernel lies, so map everything to 44100 or 48000
+  switch(sampleRate)
+  {
+    case 11025:
+    case 22050:
+    case 88200:
+    case 176400:
+      sampleRate = 44100;
+      break;
+    case 8000:
+    case 16000:
+    case 24000:
+    case 32000:
+    case 96000:
+    case 192000:
+    case 384000:
+      sampleRate = 48000;
+      break;
+  }
+#endif
   unsigned int channelCount = format.m_channelLayout.Count();
+
   snd_pcm_hw_params_set_rate_near    (m_pcm, hw_params, &sampleRate, NULL);
   snd_pcm_hw_params_set_channels_near(m_pcm, hw_params, &channelCount);
 
@@ -327,7 +362,19 @@ bool CAESinkALSA::InitializeHW(AEAudioFormat &format)
     }
   }
 
+  unsigned int periods;
   snd_pcm_uframes_t periodSize, bufferSize;
+
+  snd_pcm_hw_params_get_periods_min(hw_params, &periods, NULL);
+  snd_pcm_hw_params_get_period_size_min(hw_params, &periodSize, NULL);
+  snd_pcm_hw_params_get_buffer_size_min(hw_params, &bufferSize);
+  CLog::Log(LOGDEBUG, "CAESinkALSA::InitializeHW - Min: periodSize %lu, periods %u, bufferSize %lu", periodSize, periods, bufferSize);
+
+  snd_pcm_hw_params_get_periods_max(hw_params, &periods, NULL);
+  snd_pcm_hw_params_get_period_size_max(hw_params, &periodSize, NULL);
+  snd_pcm_hw_params_get_buffer_size_max(hw_params, &bufferSize);
+  CLog::Log(LOGDEBUG, "CAESinkALSA::InitializeHW - Max: periodSize %lu, periods %u, bufferSize %lu", periodSize, periods, bufferSize);
+
   snd_pcm_hw_params_get_buffer_size_max(hw_params, &bufferSize);
   snd_pcm_hw_params_get_period_size_max(hw_params, &periodSize, NULL);
 
@@ -339,14 +386,26 @@ bool CAESinkALSA::InitializeHW(AEAudioFormat &format)
   */
   periodSize  = std::min(periodSize, (snd_pcm_uframes_t) sampleRate / 20);
   bufferSize  = std::min(bufferSize, (snd_pcm_uframes_t) sampleRate / 5);
-  
-  /* 
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+  // must be pot for pivos.
+  bufferSize  = CheckNP2(bufferSize);
+#endif
+
+  /*
    According to upstream we should set buffer size first - so make sure it is always at least
    4x period size to not get underruns (some systems seem to have issues with only 2 periods)
   */
   periodSize = std::min(periodSize, bufferSize / 4);
+#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+  // must be pot for pivos.
+  periodSize = CheckNP2(periodSize);
+#endif
 
-  CLog::Log(LOGDEBUG, "CAESinkALSA::InitializeHW - Request: periodSize %lu, bufferSize %lu", periodSize, bufferSize);
+  bufferSize  = std::min(bufferSize, (snd_pcm_uframes_t)8192);
+  periodSize  = bufferSize / ALSA_PERIODS;
+  periods     = ALSA_PERIODS;
+
+  CLog::Log(LOGDEBUG, "CAESinkALSA::InitializeHW - Req: periodSize %lu, periods %u, bufferSize %lu", periodSize, periods, bufferSize);
 
   snd_pcm_hw_params_t *hw_params_copy;
   snd_pcm_hw_params_alloca(&hw_params_copy);

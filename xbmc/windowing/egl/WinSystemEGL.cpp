@@ -43,7 +43,7 @@ CWinSystemEGL::CWinSystemEGL() : CWinSystemBase()
   m_config            = NULL;
 
   m_egl               = NULL;
-  m_iVSyncMode        = false;
+  m_iVSyncMode        = 0;
 }
 
 CWinSystemEGL::~CWinSystemEGL()
@@ -301,8 +301,16 @@ void CWinSystemEGL::UpdateResolutions()
 
   if (!m_egl->ProbeResolutions(resolutions) || !resolutions.size())
   {
-    CLog::Log(LOGERROR, "%s: Could not find any possible resolutions",__FUNCTION__);
-    return;
+    CLog::Log(LOGWARNING, "%s: ProbeResolutions failed. Trying safe default.",__FUNCTION__);
+
+    RESOLUTION_INFO fallback;
+    if (!m_egl->GetPreferredResolution(&fallback))
+    {
+      CLog::Log(LOGERROR, "%s: Fatal Error, GetPreferredResolution failed",__FUNCTION__);
+      return;
+    }
+    else
+      resolutions.push_back(fallback);
   }
 
   /* ProbeResolutions includes already all resolutions.
@@ -384,9 +392,12 @@ bool CWinSystemEGL::PresentRenderImpl(const CDirtyRegionList &dirty)
 
 void CWinSystemEGL::SetVSyncImpl(bool enable)
 {
-  m_iVSyncMode = enable;
-  if (!m_egl->SetVSync(m_display, m_iVSyncMode))
+  m_iVSyncMode = enable ? 10:0;
+  if (!m_egl->SetVSync(m_display, enable))
+  {
+    m_iVSyncMode = 0;
     CLog::Log(LOGERROR, "%s,Could not set egl vsync", __FUNCTION__);
+  }
 }
 
 void CWinSystemEGL::ShowOSMouse(bool show)

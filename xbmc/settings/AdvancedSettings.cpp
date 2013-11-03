@@ -111,6 +111,7 @@ void CAdvancedSettings::Initialize()
   m_DXVAForceProcessorRenderer = true;
   m_DXVANoDeintProcForProgressive = false;
   m_videoFpsDetect = 1;
+  m_videoBusyDialogDelay_ms = 100;
   m_videoDefaultLatency = 0.0;
 
   m_musicUseTimeSeeking = true;
@@ -313,10 +314,13 @@ void CAdvancedSettings::Initialize()
   m_guiVisualizeDirtyRegions = false;
   m_guiAlgorithmDirtyRegions = 3;
   m_guiDirtyRegionNoFlipTimeout = 0;
+  m_enableNetworkManager  = false;
+  m_showNetworkPassPhrase = true;
   m_logEnableAirtunes = false;
   m_airTunesPort = 36666;
   m_airPlayPort = 36667;
   m_initialized = true;
+  m_settingsHidden.clear();
 
   m_databaseMusic.Reset();
   m_databaseVideo.Reset();
@@ -590,6 +594,10 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
     //0 = disable fps detect, 1 = only detect on timestamps with uniform spacing, 2 detect on all timestamps
     XMLUtils::GetInt(pElement, "fpsdetect", m_videoFpsDetect, 0, 2);
 
+    // controls the delay, in milliseconds, until
+    // the busy dialog is shown when starting video playback.
+    XMLUtils::GetInt(pElement, "busydialogdelayms", m_videoBusyDialogDelay_ms, 0, 1000);
+
     // Store global display latency settings
     TiXmlElement* pVideoLatency = pElement->FirstChildElement("latency");
     if (pVideoLatency)
@@ -736,6 +744,10 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
   }
 
   XMLUtils::GetString(pRootElement, "cddbaddress", m_cddbAddress);
+
+  //network manager
+  XMLUtils::GetBoolean(pRootElement, "enablenetworkmanager" , m_enableNetworkManager);
+  XMLUtils::GetBoolean(pRootElement, "shownetworkpassphrase", m_showNetworkPassPhrase);
 
   //airtunes + airplay
   XMLUtils::GetBoolean(pRootElement, "enableairtunesdebuglog", m_logEnableAirtunes);
@@ -916,6 +928,26 @@ void CAdvancedSettings::ParseSettingsFile(const CStdString &file)
 
       // get next one
       pSubstitute = pSubstitute->NextSiblingElement("substitute");
+    }
+  }
+
+  TiXmlElement* pHideSettings = pRootElement->FirstChildElement("hidesettings");
+  if (pHideSettings)
+  {
+    m_settingsHidden.clear();
+    CLog::Log(LOGDEBUG,"Configuring hidden settings");
+    TiXmlNode* pSetting = pHideSettings->FirstChildElement("setting");
+    CStdString hiddenSetting;
+    while (pSetting)
+    {
+      hiddenSetting = pSetting->FirstChild()->Value();
+      if (!hiddenSetting.IsEmpty())
+      {
+        CLog::Log(LOGNOTICE,"Hiding:  [%s]", hiddenSetting.c_str());
+        m_settingsHidden.push_back(hiddenSetting);
+      }
+      // get next one
+      pSetting = pSetting->NextSiblingElement("setting");
     }
   }
 

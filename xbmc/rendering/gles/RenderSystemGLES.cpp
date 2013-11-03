@@ -169,6 +169,15 @@ bool CRenderSystemGLES::DestroyRenderSystem()
     m_pGUIshader = NULL;
   }
 
+  ResetScissors();
+  CDirtyRegionList dirtyRegions;
+  CDirtyRegion dirtyWindow(g_graphicsContext.GetViewWindow());
+  dirtyRegions.push_back(dirtyWindow);
+
+  ClearBuffers(0);
+  glFinish();
+  PresentRenderImpl(dirtyRegions);
+
   m_bRenderCreated = false;
 
   return true;
@@ -623,6 +632,14 @@ GLint CRenderSystemGLES::GUIShaderGetCoord1()
 {
   if (m_pGUIshader[m_method])
     return m_pGUIshader[m_method]->GetCord1Loc();
+
+  return -1;
+}
+
+GLint CRenderSystemGLES::GUIShaderGetUniCol()
+{
+  if (m_pGUIshader[m_method])
+    return m_pGUIshader[m_method]->GetUniColLoc();
 
   return -1;
 }

@@ -591,6 +591,8 @@ lib/cmyth/Makefile
 /xbmc/cores/amlplayer/Makefile
 /xbmc/cores/omxplayer/Makefile
 
+/xbmc/utils/Makefile
+
 # /lib/ffmpeg/
 /lib/ffmpeg/config.h
 /lib/ffmpeg/config.err
@@ -1099,6 +1101,7 @@ lib/cmyth/Makefile
 
 # /xbmc/network/
 /xbmc/network/Makefile
+/xbmc/network/linux/Makefile
 /xbmc/network/upnp/Makefile
 
 # /lib/libRTV/
