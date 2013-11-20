@@ -358,7 +358,7 @@ class CAdvancedSettings
     int  m_guiDirtyRegionNoFlipTimeout;
     unsigned int m_addonPackageFolderSize;
 
-    unsigned int m_cacheMemBufferSize;
+    int m_freeMemCachePercent;
     bool m_alwaysForceBuffer;
     float m_readBufferFactor;
 

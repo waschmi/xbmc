@@ -23,7 +23,7 @@
 #include "filesystem/IFile.h"
 #include "settings/AdvancedSettings.h"
 #include "utils/log.h"
-#include "utils/URIUtils.h"
+#include "utils/URIUtils.h" 
 
 using namespace XFILE;
 
@@ -56,7 +56,7 @@ bool CDVDInputStreamFile::Open(const char* strFile, const std::string& content)
 
   if ( g_advancedSettings.m_alwaysForceBuffer && 
        !URIUtils::IsOnDVD(strFile) && 
-       !URIUtils::IsBluray(strFile) )
+       !URIUtils::IsBluray(strFile))
     flags |= READ_CACHED; 
 
   // open file in binary mode
@@ -152,6 +152,7 @@ int CDVDInputStreamFile::GetBlockSize()
 void CDVDInputStreamFile::SetReadRate(unsigned rate)
 {
   unsigned maxrate = rate + 1024 * 1024 / 8;
+  CLog::Log(LOGDEBUG, "CDVDInputStreamFile::SetReadRate - Read rate set to %u bytes per second", maxrate);
   if(m_pFile->IoControl(IOCTRL_CACHE_SETRATE, &maxrate) >= 0)
     CLog::Log(LOGDEBUG, "CDVDInputStreamFile::SetReadRate - set cache throttle rate to %u bytes per second", maxrate);
 }
