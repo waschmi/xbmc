@@ -23,7 +23,7 @@
 #include "Utils/AERingBuffer.h"
 #include "android/activity/XBMCApp.h"
 #include "utils/log.h"
-#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+#if defined(HAS_LIBAMCODEC)
 #include "utils/AMLUtils.h"
 
 #define DEFAULT_OFFSET 0.250f
@@ -74,14 +74,14 @@ CAESinkAUDIOTRACK::CAESinkAUDIOTRACK()
 {
   m_sinkbuffer = NULL;
   m_alignedS16LE = NULL;
-#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+#if defined(HAS_LIBAMCODEC)
   aml_cpufreq_limit(true);
 #endif
 }
 
 CAESinkAUDIOTRACK::~CAESinkAUDIOTRACK()
 {
-#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+#if defined(HAS_LIBAMCODEC)
   aml_cpufreq_limit(false);
 #endif
 }
@@ -175,7 +175,7 @@ double CAESinkAUDIOTRACK::GetDelay()
 
   double sinkbuffer_seconds_to_empty = m_sinkbuffer_sec_per_byte * (double)m_sinkbuffer->GetReadSize();
   sinkbuffer_seconds_to_empty += m_audiotrack_empty_sec;
-#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+#if defined(HAS_LIBAMCODEC)
   if (sinkbuffer_seconds_to_empty > 0.0)
     sinkbuffer_seconds_to_empty += DEFAULT_OFFSET;
 #endif
@@ -189,7 +189,7 @@ double CAESinkAUDIOTRACK::GetCacheTime()
 
   double sinkbuffer_seconds_to_empty = m_sinkbuffer_sec_per_byte * (double)m_sinkbuffer->GetReadSize();
   sinkbuffer_seconds_to_empty += m_audiotrack_empty_sec;
-#if defined(HAS_AMLPLAYER) || defined(HAS_LIBAMCODEC)
+#if defined(HAS_LIBAMCODEC)
   if (sinkbuffer_seconds_to_empty > 0.0)
     sinkbuffer_seconds_to_empty += DEFAULT_OFFSET;
 #endif
